@@ -3,6 +3,21 @@ Advanced Notepad
 A lightweight text editor built with Java Swing, designed to be simple, practical, and actually usable.
 
 This project started as a way to understand how desktop applications work in Java. Over time, it evolved into a more complete editor with formatting, themes, and language support.
+## Screenshots
+
+### Light Mode
+<img width="1531" height="955" alt="image" src="https://github.com/user-attachments/assets/969ad40b-5d12-4d41-b19f-f88b9fad42ff" />
+
+
+
+### Dark Mode
+<img width="1533" height="964" alt="image" src="https://github.com/user-attachments/assets/c387821e-5d14-49e8-99ba-59b7e9a0a601" />
+
+
+
+
+
+
 
 Overview
 
