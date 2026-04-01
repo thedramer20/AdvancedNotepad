@@ -1,103 +1,93 @@
-📝 Advanced Notepad
+Advanced Notepad
 
-A simple but powerful text editor built using Java Swing.
-I originally started this project to learn more about GUI design in Java — and it slowly turned into something much more complete.
+A lightweight text editor built with Java Swing, designed to be simple, practical, and actually usable.
 
-It’s not just a basic notepad. It supports formatting, themes, multiple languages, and a bunch of quality-of-life features you’d expect from a real editor.
+This project started as a way to understand how desktop applications work in Java. Over time, it evolved into a more complete editor with formatting, themes, and language support.
 
-💡 Why this project?
+Overview
 
-Most beginner Java projects are either too simple or too abstract.
-I wanted something practical, something you can actually use — so I built this.
+Advanced Notepad focuses on the essentials:
 
-This project helped me understand:
+clean interface
+responsive editing
+useful features without unnecessary complexity
 
-GUI design with Swing
-Event handling
-Text manipulation (StyledDocument)
-Structuring a real application
-✨ Features
-📝 Editing
-Bold, Italic, Underline (works on selected text only ✔️)
-Undo / Redo
-Find & Replace
+It’s not meant to compete with large editors, but to demonstrate how a well-structured Java application can feel polished and real.
+
+Features
+Editing
+Rich text formatting (bold, italic, underline) applied only to selected text
+Undo and redo with proper history handling
+Find and replace
 Word wrap toggle
 Line numbers
-🎨 Appearance
-Light & Dark mode
-Clean, modern UI (no default ugly Swing look 😅)
-Status bar with cursor position & info
-🌍 Languages
+Appearance
+Light and dark themes
+Consistent layout with a simple toolbar and status bar
+Real-time cursor position and document info
+Language Support
 English
-中文 (Chinese)
-العربية (Arabic)
+Chinese
+Arabic
 
-You can switch language directly from settings.
+The interface updates dynamically when the language is changed.
 
-🔤 Fonts
-Multiple font families (Consolas, Arial, etc.)
+Fonts
+Multiple font families
 Adjustable font size
-Zoom in/out with shortcuts or mouse
-⌨️ Shortcuts (the important ones)
-Action	Shortcut
-New	Ctrl + N
-Open	Ctrl + O
-Save	Ctrl + S
-Undo	Ctrl + Z
-Redo	Ctrl + Y
-Bold	Ctrl + B
-Italic	Ctrl + I
-Underline	Ctrl + U
-Find	Ctrl + F
-🚀 How to run
-1. Compile and run manually
+Zoom support (keyboard and mouse)
+Running the Project
+Compile and run
 javac AdvancedNotepad.java
 java AdvancedNotepad
-2. Using an IDE
+Using an IDE
 
-Just open the file and run main()
-Works fine in:
+Open the project in any Java IDE and run the main class:
 
 IntelliJ IDEA
 Eclipse
 VS Code
-🧠 How it works (short explanation)
-Uses JTextPane for rich text editing
-Styling is handled with StyledDocument
-Undo/Redo is managed with UndoManager
-Themes are applied by dynamically updating component colors
-Language system is based on a simple dictionary approach
-📁 Project Structure
+Implementation Notes
+
+The editor is built using standard Java Swing components:
+
+JTextPane for rich text editing
+StyledDocument for formatting control
+UndoManager for undo/redo functionality
+Custom UI updates for theme switching
+A simple dictionary-based system for language support
+
+The goal was to keep the architecture straightforward while still supporting real features.
+
+Project Structure
 AdvancedNotepad/
 │── AdvancedNotepad.java
 │── README.md
 │── LICENSE
 │── screenshots/
-🔧 Things I might add later
-Syntax highlighting (for code)
-Tabs (multiple files)
+Future Improvements
+
+Some features that could be added:
+
+Syntax highlighting
+Multi-tab editing
 Auto-save
-Better settings persistence
-Export to PDF
-🤝 Contributing
+Persistent settings (using Java Preferences API)
+Export options (PDF or HTML)
+Contributing
 
-If you want to improve something, feel free:
+Contributions are welcome.
+If you want to improve the project, feel free to fork it and open a pull request.
 
-Fork it
-Change it
-Open a PR
+License
 
-Even small improvements are welcome 👍
+MIT License
 
-📄 License
+Author
 
-MIT License — use it however you want.
+thedramer20
 
-👨‍💻 Author
+Final Note
 
-Made by thedramer20
-
-💬 Final note
-
-This project is not meant to replace professional editors —
-it’s more of a learning + practical project that turned into something usable.
+This project is a balance between learning and building something practical.
+It shows how a desktop application can go beyond a basic example and become a usable tool.
