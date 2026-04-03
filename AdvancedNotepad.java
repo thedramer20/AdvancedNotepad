@@ -76,8 +76,16 @@ public class AdvancedNotepad extends JFrame {
     private MutableAttributeSet typingAttributes;
 
     private static final String[] FONT_OPTIONS = {
-            "Consolas", "Arial", "Calibri", "Tahoma",
-            "Times New Roman", "Courier New", "Verdana"
+            "Consolas", "Cascadia Code", "Courier New", "Lucida Console",
+            "Arial", "Calibri", "Cambria", "Candara",
+            "Corbel", "Segoe UI", "Tahoma", "Trebuchet MS",
+            "Verdana", "Georgia", "Garamond", "Book Antiqua",
+            "Palatino Linotype", "Times New Roman", "Franklin Gothic Medium", "Century Gothic",
+            "Comic Sans MS", "Impact", "Microsoft YaHei UI", "SimSun"
+    };
+
+    private static final Integer[] FONT_SIZES = {
+            8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72
     };
 
     public static void main(String[] args) {
@@ -168,15 +176,18 @@ public class AdvancedNotepad extends JFrame {
         fontFamilyCombo = new JComboBox<>(FONT_OPTIONS);
         fontFamilyCombo.setSelectedItem(fontFamily);
         fontFamilyCombo.setPreferredSize(new Dimension(170, 38));
-        fontFamilyCombo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        fontFamilyCombo.setFont(uiFont(Font.PLAIN, 14));
 
-        fontSizeCombo = new JComboBox<>(new Integer[]{12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40});
+        fontSizeCombo = new JComboBox<>(FONT_SIZES);
         fontSizeCombo.setSelectedItem(fontSize);
         fontSizeCombo.setPreferredSize(new Dimension(90, 38));
-        fontSizeCombo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        fontSizeCombo.setFont(uiFont(Font.PLAIN, 14));
 
         settingsBtn = createToolbarTextButton("Settings", "Settings");
         settingsBtn.setPreferredSize(new Dimension(130, 38));
+        settingsBtn.setIcon(new GearIcon(16, new Color(255, 255, 255)));
+        settingsBtn.setHorizontalTextPosition(SwingConstants.RIGHT);
+        settingsBtn.setIconTextGap(8);
     }
 
     private void initializeTypingAttributes() {
@@ -279,8 +290,8 @@ public class AdvancedNotepad extends JFrame {
         JPanel titlePanel = new JPanel();
         titlePanel.setOpaque(false);
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        appTitleLabel.setFont(new Font("Georgia", Font.BOLD, 30));
-        appSubtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        appTitleLabel.setFont(titleFont(Font.BOLD, 30));
+        appSubtitleLabel.setFont(uiFont(Font.PLAIN, 13));
         titlePanel.add(appTitleLabel);
         titlePanel.add(Box.createVerticalStrut(2));
         titlePanel.add(appSubtitleLabel);
@@ -359,7 +370,7 @@ public class AdvancedNotepad extends JFrame {
         btn.setBorder(new EmptyBorder(8, 14, 8, 14));
         btn.setContentAreaFilled(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        btn.setFont(uiFont(Font.BOLD, 14));
         btn.setFocusPainted(false);
         return btn;
     }
@@ -368,7 +379,7 @@ public class AdvancedNotepad extends JFrame {
         JButton btn = new JButton(text);
         btn.setToolTipText(tooltip);
         btn.setPreferredSize(new Dimension(96, 38));
-        btn.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 13));
+        btn.setFont(uiFont(Font.BOLD, 13));
         styleToolbarButton(btn);
         return btn;
     }
@@ -377,22 +388,23 @@ public class AdvancedNotepad extends JFrame {
         JButton btn = new JButton(text);
         btn.setToolTipText(tooltip);
         btn.setPreferredSize(new Dimension(46, 38));
-        btn.setFont(new Font("Segoe UI", fontStyle, 16));
+        btn.setFont(uiFont(fontStyle, 16));
         styleToolbarButton(btn);
         return btn;
     }
 
     private JLabel createMiniToolbarLabel(String text) {
         JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        label.setFont(uiFont(Font.BOLD, 12));
         label.setBorder(new EmptyBorder(0, 4, 0, 0));
         return label;
     }
 
-    private JLabel createDivider() {
-        JLabel divider = new JLabel("•");
-        divider.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 12));
-        divider.setBorder(new EmptyBorder(0, 6, 0, 6));
+    private JComponent createDivider() {
+        JPanel divider = new JPanel();
+        divider.setOpaque(true);
+        divider.setPreferredSize(new Dimension(1, 22));
+        divider.setBorder(new EmptyBorder(0, 8, 0, 8));
         return divider;
     }
 
@@ -428,6 +440,44 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    private String getUIFontFamily() {
+        if ("中文".equals(language)) {
+            return "Microsoft YaHei UI";
+        }
+        if ("العربية".equals(language)) {
+            return "Segoe UI";
+        }
+        return "Segoe UI";
+    }
+
+    private String getTitleFontFamily() {
+        if ("中文".equals(language)) {
+            return "Microsoft YaHei UI";
+        }
+        if ("العربية".equals(language)) {
+            return "Segoe UI";
+        }
+        return "Georgia";
+    }
+
+    private Font uiFont(int style, int size) {
+        return new Font(getUIFontFamily(), style, size);
+    }
+
+    private Font titleFont(int style, int size) {
+        return new Font(getTitleFontFamily(), style, size);
+    }
+
+    private Font getSampleLanguageFont(String languageName, int style, int size) {
+        if ("中文".equals(languageName)) {
+            return new Font("Microsoft YaHei UI", style, size);
+        }
+        if ("العربية".equals(languageName)) {
+            return new Font("Segoe UI", style, size);
+        }
+        return new Font("Segoe UI", style, size);
+    }
+
     private Color[] getThemePalette() {
         boolean dark = theme.equalsIgnoreCase("Dark");
         Color bg = dark ? new Color(20, 24, 32) : new Color(243, 238, 229);
@@ -457,7 +507,7 @@ public class AdvancedNotepad extends JFrame {
         item.setOpaque(true);
         item.setBackground(editor);
         item.setForeground(fg);
-        item.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        item.setFont(uiFont(Font.BOLD, 14));
         item.setBorder(new EmptyBorder(10, 14, 10, 14));
         item.setIconTextGap(10);
         item.setHorizontalTextPosition(SwingConstants.LEFT);
@@ -501,11 +551,25 @@ public class AdvancedNotepad extends JFrame {
     private void styleSettingsCheckBox(JCheckBox checkBox, Color bg, Color fg) {
         checkBox.setOpaque(false);
         checkBox.setForeground(fg);
-        checkBox.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        checkBox.setFont(uiFont(Font.BOLD, 14));
         checkBox.setFocusPainted(false);
         checkBox.setBorder(new EmptyBorder(4, 2, 4, 2));
         checkBox.setIcon(new CheckBoxIcon(bg.darker(), new Color(255, 255, 255, 0), fg));
         checkBox.setSelectedIcon(new CheckBoxIcon(bg.darker(), getThemePalette()[8], Color.WHITE));
+    }
+
+    private void styleLanguageComboBox(JComboBox<String> comboBox, Color bg, Color fg, Color border) {
+        styleComboBox(comboBox, bg, fg, border);
+        comboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                String text = value == null ? "" : value.toString();
+                label.setFont(getSampleLanguageFont(text, Font.PLAIN, 14));
+                label.setBorder(new EmptyBorder(6, 8, 6, 8));
+                return label;
+            }
+        });
     }
 
     private void setupListeners() {
@@ -736,7 +800,7 @@ public class AdvancedNotepad extends JFrame {
             return;
         }
 
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        if (showStyledFileChooser(false) == JFileChooser.APPROVE_OPTION) {
             try {
                 currentFile = chooser.getSelectedFile();
                 String content = Files.readString(currentFile.toPath(), StandardCharsets.UTF_8);
@@ -762,7 +826,7 @@ public class AdvancedNotepad extends JFrame {
     private void saveFile() {
         try {
             if (currentFile == null) {
-                if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+                if (showStyledFileChooser(true) != JFileChooser.APPROVE_OPTION) {
                     return;
                 }
                 currentFile = chooser.getSelectedFile();
@@ -780,7 +844,7 @@ public class AdvancedNotepad extends JFrame {
 
     private void saveFileAs() {
         try {
-            if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            if (showStyledFileChooser(true) != JFileChooser.APPROVE_OPTION) {
                 return;
             }
 
@@ -806,12 +870,11 @@ public class AdvancedNotepad extends JFrame {
             return true;
         }
 
-        int result = JOptionPane.showConfirmDialog(
-                this,
-                t("You have unsaved changes. Save before continuing?"),
+        int result = showStyledConfirmDialog(
                 t("Confirm"),
-                JOptionPane.YES_NO_CANCEL_OPTION,
-                JOptionPane.WARNING_MESSAGE
+                t("You have unsaved changes. Save before continuing?"),
+                "Unsaved changes",
+                "Save first to avoid losing your work."
         );
 
         if (result == JOptionPane.CANCEL_OPTION || result == JOptionPane.CLOSED_OPTION) {
@@ -1243,10 +1306,10 @@ public class AdvancedNotepad extends JFrame {
         header.setBackground(bg);
         header.setBorder(new EmptyBorder(20, 22, 12, 22));
         JLabel title = new JLabel(t("Settings"));
-        title.setFont(new Font("Georgia", Font.BOLD, 26));
+        title.setFont(titleFont(Font.BOLD, 26));
         title.setForeground(fg);
         JLabel subtitle = new JLabel("Personalize the editor experience");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setFont(uiFont(Font.PLAIN, 13));
         subtitle.setForeground(sub);
         header.add(title, BorderLayout.NORTH);
         header.add(subtitle, BorderLayout.SOUTH);
@@ -1260,7 +1323,7 @@ public class AdvancedNotepad extends JFrame {
         JComboBox<String> fontCombo = new JComboBox<>(FONT_OPTIONS);
         fontCombo.setSelectedItem(fontFamily);
 
-        JComboBox<Integer> sizeCombo = new JComboBox<>(new Integer[]{12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40});
+        JComboBox<Integer> sizeCombo = new JComboBox<>(FONT_SIZES);
         sizeCombo.setSelectedItem(fontSize);
 
         JCheckBox boldCheck = new JCheckBox(t("Bold text"));
@@ -1279,7 +1342,7 @@ public class AdvancedNotepad extends JFrame {
         lineCheck.setSelected(showLineNumbers);
 
         styleComboBox(themeCombo, buttonBg, fg, border);
-        styleComboBox(languageCombo, buttonBg, fg, border);
+        styleLanguageComboBox(languageCombo, buttonBg, fg, border);
         styleComboBox(fontCombo, buttonBg, fg, border);
         styleComboBox(sizeCombo, buttonBg, fg, border);
 
@@ -1321,8 +1384,8 @@ public class AdvancedNotepad extends JFrame {
         buttons.setBorder(new EmptyBorder(0, 22, 20, 22));
         JButton applyBtn = new JButton(t("Apply"));
         JButton closeBtn = new JButton(t("Close"));
-        applyBtn.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
-        closeBtn.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        applyBtn.setFont(uiFont(Font.BOLD, 14));
+        closeBtn.setFont(uiFont(Font.BOLD, 14));
         applyBtn.setPreferredSize(new Dimension(116, 40));
         closeBtn.setPreferredSize(new Dimension(116, 40));
         applyBtn.setBackground(accent);
@@ -1383,14 +1446,190 @@ public class AdvancedNotepad extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = row;
         JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        label.setFont(uiFont(Font.BOLD, 14));
         label.setForeground(fg);
         label.setBorder(new EmptyBorder(0, 0, 0, 6));
         panel.add(label, gbc);
 
         gbc.gridx = 1;
-        component.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        component.setFont(uiFont(Font.PLAIN, 14));
         panel.add(component, gbc);
+    }
+
+    private int showStyledFileChooser(boolean saveDialog) {
+        Color[] palette = getThemePalette();
+        Color bg = palette[0];
+        Color panel = palette[1];
+        Color editor = palette[2];
+        Color fg = palette[3];
+        Color border = palette[5];
+        Color buttonBg = palette[7];
+        Color accent = palette[8];
+
+        chooser.setDialogTitle(saveDialog ? t("Save") : t("Open"));
+        chooser.setApproveButtonText(saveDialog ? t("Save") : t("Open"));
+        chooser.setBackground(bg);
+        styleFileChooserComponentTree(chooser, bg, panel, editor, fg, border, buttonBg, accent);
+
+        return saveDialog ? chooser.showSaveDialog(this) : chooser.showOpenDialog(this);
+    }
+
+    private void styleFileChooserComponentTree(Component component, Color bg, Color panel, Color editor, Color fg, Color border, Color buttonBg, Color accent) {
+        if (component instanceof JPanel) {
+            component.setBackground(bg);
+            ((JPanel) component).setOpaque(true);
+        } else if (component instanceof JList || component instanceof JTable || component instanceof JTree) {
+            component.setBackground(editor);
+            component.setForeground(fg);
+        } else if (component instanceof JTextField) {
+            component.setBackground(editor);
+            component.setForeground(fg);
+            ((JTextField) component).setCaretColor(fg);
+            ((JTextField) component).setBorder(new CompoundBorder(new LineBorder(border, 1, true), new EmptyBorder(7, 10, 7, 10)));
+        } else if (component instanceof JComboBox) {
+            styleComboBox((JComponent) component, editor, fg, border);
+        } else if (component instanceof JButton) {
+            JButton button = (JButton) component;
+            button.setFocusPainted(false);
+            button.setFont(uiFont(Font.BOLD, 13));
+            boolean primary = button.getText() != null && button.getText().equals(chooser.getApproveButtonText());
+            button.setBackground(primary ? accent : buttonBg);
+            button.setForeground(primary ? Color.WHITE : fg);
+            button.setBorder(new CompoundBorder(
+                    new LineBorder(primary ? accent : border, 1, true),
+                    new EmptyBorder(7, 12, 7, 12)
+            ));
+        } else if (component instanceof JLabel) {
+            component.setForeground(fg);
+            component.setFont(uiFont(Font.BOLD, 13));
+        } else if (component instanceof JScrollPane) {
+            component.setBackground(editor);
+            ((JScrollPane) component).getViewport().setBackground(editor);
+            ((JScrollPane) component).setBorder(new LineBorder(border, 1, true));
+        } else if (component instanceof JSeparator) {
+            component.setForeground(border);
+            component.setBackground(border);
+        } else {
+            component.setBackground(bg);
+            component.setForeground(fg);
+        }
+
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                styleFileChooserComponentTree(child, bg, panel, editor, fg, border, buttonBg, accent);
+            }
+        }
+    }
+
+    private int showStyledConfirmDialog(String titleText, String messageText, String headlineText, String detailText) {
+        Color[] palette = getThemePalette();
+        Color bg = palette[0];
+        Color editor = palette[2];
+        Color fg = palette[3];
+        Color sub = palette[4];
+        Color border = palette[5];
+        Color buttonBg = palette[7];
+        Color accent = palette[8];
+
+        final int[] result = {JOptionPane.CLOSED_OPTION};
+        JDialog dialog = new JDialog(this, titleText, true);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(bg);
+        dialog.setSize(500, 240);
+        dialog.setResizable(false);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(bg);
+        header.setBorder(new EmptyBorder(18, 20, 10, 20));
+        JLabel title = new JLabel(titleText);
+        title.setFont(titleFont(Font.BOLD, 22));
+        title.setForeground(fg);
+        header.add(title, BorderLayout.WEST);
+
+        JPanel card = new JPanel(new BorderLayout(16, 0));
+        card.setBackground(editor);
+        card.setBorder(new CompoundBorder(
+                new LineBorder(border, 1, true),
+                new EmptyBorder(20, 20, 20, 20)
+        ));
+
+        JLabel icon = new JLabel("!");
+        icon.setHorizontalAlignment(SwingConstants.CENTER);
+        icon.setPreferredSize(new Dimension(42, 42));
+        icon.setOpaque(true);
+        icon.setBackground(accent);
+        icon.setForeground(Color.WHITE);
+        icon.setFont(uiFont(Font.BOLD, 22));
+        icon.setBorder(new LineBorder(accent, 1, true));
+
+        JPanel textBlock = new JPanel();
+        textBlock.setOpaque(false);
+        textBlock.setLayout(new BoxLayout(textBlock, BoxLayout.Y_AXIS));
+        JLabel headline = new JLabel(headlineText);
+        headline.setFont(uiFont(Font.BOLD, 16));
+        headline.setForeground(fg);
+        JLabel message = new JLabel("<html><div style='width:280px;'>" + messageText + "</div></html>");
+        message.setFont(uiFont(Font.PLAIN, 14));
+        message.setForeground(sub);
+        JLabel detail = new JLabel(detailText);
+        detail.setFont(uiFont(Font.PLAIN, 13));
+        detail.setForeground(sub);
+        textBlock.add(headline);
+        textBlock.add(Box.createVerticalStrut(8));
+        textBlock.add(message);
+        textBlock.add(Box.createVerticalStrut(6));
+        textBlock.add(detail);
+
+        card.add(icon, BorderLayout.WEST);
+        card.add(textBlock, BorderLayout.CENTER);
+
+        JPanel buttonBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonBar.setOpaque(false);
+        buttonBar.setBorder(new EmptyBorder(14, 20, 18, 20));
+
+        JButton saveButton = new JButton(t("Save"));
+        JButton discardButton = new JButton(t("No"));
+        JButton cancelButton = new JButton(t("Cancel"));
+
+        styleDialogButton(saveButton, accent, Color.WHITE, accent);
+        styleDialogButton(discardButton, buttonBg, fg, border);
+        styleDialogButton(cancelButton, buttonBg, fg, border);
+
+        saveButton.addActionListener(e -> {
+            result[0] = JOptionPane.YES_OPTION;
+            dialog.dispose();
+        });
+        discardButton.addActionListener(e -> {
+            result[0] = JOptionPane.NO_OPTION;
+            dialog.dispose();
+        });
+        cancelButton.addActionListener(e -> {
+            result[0] = JOptionPane.CANCEL_OPTION;
+            dialog.dispose();
+        });
+
+        buttonBar.add(saveButton);
+        buttonBar.add(discardButton);
+        buttonBar.add(cancelButton);
+
+        dialog.add(header, BorderLayout.NORTH);
+        dialog.add(card, BorderLayout.CENTER);
+        dialog.add(buttonBar, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+        return result[0];
+    }
+
+    private void styleDialogButton(JButton button, Color bg, Color fg, Color border) {
+        button.setFont(uiFont(Font.BOLD, 13));
+        button.setPreferredSize(new Dimension(104, 38));
+        button.setBackground(bg);
+        button.setForeground(fg);
+        button.setFocusPainted(false);
+        button.setBorder(new CompoundBorder(
+                new LineBorder(border, 1, true),
+                new EmptyBorder(7, 12, 7, 12)
+        ));
     }
 
     private void applyTheme() {
@@ -1425,6 +1664,22 @@ public class AdvancedNotepad extends JFrame {
         textPane.setSelectedTextColor(fg);
         textPane.setFont(new Font(fontFamily, Font.PLAIN, fontSize));
         textPane.setBorder(new EmptyBorder(0, 0, 0, 0));
+        appTitleLabel.setFont(titleFont(Font.BOLD, 30));
+        appSubtitleLabel.setFont(uiFont(Font.PLAIN, 13));
+        fileMenuButton.setFont(uiFont(Font.BOLD, 14));
+        editMenuButton.setFont(uiFont(Font.BOLD, 14));
+        viewMenuButton.setFont(uiFont(Font.BOLD, 14));
+        helpMenuButton.setFont(uiFont(Font.BOLD, 14));
+        newBtn.setFont(uiFont(Font.BOLD, 13));
+        openBtn.setFont(uiFont(Font.BOLD, 13));
+        saveBtn.setFont(uiFont(Font.BOLD, 13));
+        replaceBtn.setFont(uiFont(Font.BOLD, 13));
+        settingsBtn.setFont(uiFont(Font.BOLD, 13));
+        boldBtn.setFont(uiFont(Font.BOLD, 16));
+        italicBtn.setFont(uiFont(Font.ITALIC, 16));
+        underlineBtn.setFont(uiFont(Font.PLAIN, 16));
+        fontFamilyCombo.setFont(uiFont(Font.PLAIN, 14));
+        fontSizeCombo.setFont(uiFont(Font.PLAIN, 14));
 
         lineNumbers.setBackground(panel);
         lineNumbers.setForeground(sub);
@@ -1441,6 +1696,11 @@ public class AdvancedNotepad extends JFrame {
                 new LineBorder(border, 1, true),
                 new EmptyBorder(4, 10, 4, 10)
         ));
+        for (Component component : centerToolbarPanel.getComponents()) {
+            if (component instanceof JPanel && component.getPreferredSize().width == 1) {
+                component.setBackground(border);
+            }
+        }
         editorCardPanel.setBorder(new CompoundBorder(
                 new LineBorder(cardBorder, 1, true),
                 new EmptyBorder(18, 18, 18, 18)
@@ -1631,6 +1891,9 @@ public class AdvancedNotepad extends JFrame {
             map.put("Bold updated", "تم تحديث العريض");
             map.put("Italic updated", "تم تحديث المائل");
             map.put("Underline updated", "تم تحديث التسطير");
+            map.put("YES", "نعم");
+            map.put("NO", "لا");
+            map.put("Cancel", "تراجع");
         } else {
             map.put("File", "File");
             map.put("Edit", "Edit");
@@ -1662,7 +1925,7 @@ public class AdvancedNotepad extends JFrame {
             map.put("Toggle Word Wrap", "Toggle Word Wrap");
             map.put("Toggle Line Numbers", "Toggle Line Numbers");
             map.put("About", "About");
-            map.put("Settings", "⚙ Settings");
+            map.put("Settings", "Settings");
 
             map.put("Wrap", "Wrap");
             map.put("Date", "Date");
@@ -1808,6 +2071,52 @@ public class AdvancedNotepad extends JFrame {
         @Override
         public int getIconHeight() {
             return 16;
+        }
+    }
+
+    private static class GearIcon implements Icon {
+        private final int size;
+        private final Color color;
+
+        GearIcon(int size, Color color) {
+            this.size = size;
+            this.color = color;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.translate(x, y);
+            g2.setColor(color);
+
+            int center = size / 2;
+            int inner = Math.max(3, size / 5);
+            int outer = Math.max(inner + 2, size / 2 - 1);
+            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+            for (int i = 0; i < 8; i++) {
+                double angle = Math.toRadians(i * 45.0);
+                int x1 = center + (int) ((inner + 2) * Math.cos(angle));
+                int y1 = center + (int) ((inner + 2) * Math.sin(angle));
+                int x2 = center + (int) (outer * Math.cos(angle));
+                int y2 = center + (int) (outer * Math.sin(angle));
+                g2.drawLine(x1, y1, x2, y2);
+            }
+
+            g2.drawOval(center - inner, center - inner, inner * 2, inner * 2);
+            g2.fillOval(center - 1, center - 1, 3, 3);
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
         }
     }
 }
