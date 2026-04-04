@@ -88,10 +88,12 @@ public class AdvancedNotepad extends JFrame {
             8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72
     };
 
+    // Starts the program and opens the notepad window.
     public static void main(String[] args) {
         SwingUtilities.invokeLater(AdvancedNotepad::new);
     }
 
+    // Runs the setup steps that build and show the full editor.
     public AdvancedNotepad() {
         initializeFrame();
         initializeComponents();
@@ -106,6 +108,7 @@ public class AdvancedNotepad extends JFrame {
         setVisible(true);
     }
 
+    // Sets the main window size, title, and close settings.
     private void initializeFrame() {
         setTitle("Advanced Notepad");
         setSize(1250, 780);
@@ -114,6 +117,7 @@ public class AdvancedNotepad extends JFrame {
         setMinimumSize(new Dimension(950, 650));
     }
 
+    // Creates the editor, buttons, labels, combo boxes, and scroll pane.
     private void initializeComponents() {
         textPane = new JTextPane() {
             @Override
@@ -190,6 +194,7 @@ public class AdvancedNotepad extends JFrame {
         settingsBtn.setIconTextGap(8);
     }
 
+    // Prepares the default style used when the user types new text.
     private void initializeTypingAttributes() {
         typingAttributes = new SimpleAttributeSet();
         applyTypingAttributesToSet();
@@ -198,6 +203,7 @@ public class AdvancedNotepad extends JFrame {
         installDocumentListeners(textPane.getDocument());
     }
 
+    // Listens for text changes so the app can update title, status, and undo history.
     private void installDocumentListeners(Document doc) {
         doc.addDocumentListener(new DocumentListener() {
             @Override
@@ -223,6 +229,7 @@ public class AdvancedNotepad extends JFrame {
         });
     }
 
+    // Marks the file as changed and refreshes the editor information.
     private void onDocumentChanged() {
         if (!internalChange) {
             modified = true;
@@ -232,6 +239,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Copies the current font and style settings into the typing attributes.
     private void applyTypingAttributesToSet() {
         StyleConstants.setFontFamily(typingAttributes, fontFamily);
         StyleConstants.setFontSize(typingAttributes, fontSize);
@@ -284,6 +292,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Builds the full window layout: top area, editor area, and status bar.
     private void buildUI() {
         setLayout(new BorderLayout());
 
@@ -364,6 +373,7 @@ public class AdvancedNotepad extends JFrame {
         add(statusPanel, BorderLayout.SOUTH);
     }
 
+    // Creates a styled menu button for the top bar.
     private JButton createTopMenuButton(String text) {
         JButton btn = new JButton(text);
         btn.setFocusable(false);
@@ -375,6 +385,7 @@ public class AdvancedNotepad extends JFrame {
         return btn;
     }
 
+    // Creates a normal toolbar button with shared styling.
     private JButton createToolbarTextButton(String text, String tooltip) {
         JButton btn = new JButton(text);
         btn.setToolTipText(tooltip);
@@ -384,6 +395,7 @@ public class AdvancedNotepad extends JFrame {
         return btn;
     }
 
+    // Creates a small toolbar button for bold, italic, or underline.
     private JButton createFormatButton(String text, String tooltip, int fontStyle) {
         JButton btn = new JButton(text);
         btn.setToolTipText(tooltip);
@@ -393,6 +405,7 @@ public class AdvancedNotepad extends JFrame {
         return btn;
     }
 
+    // Creates a small label used inside the toolbar.
     private JLabel createMiniToolbarLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(uiFont(Font.BOLD, 12));
@@ -400,6 +413,7 @@ public class AdvancedNotepad extends JFrame {
         return label;
     }
 
+    // Creates a divider line between toolbar groups.
     private JComponent createDivider() {
         JPanel divider = new JPanel();
         divider.setOpaque(true);
@@ -408,6 +422,7 @@ public class AdvancedNotepad extends JFrame {
         return divider;
     }
 
+    // Applies the common look used by toolbar buttons.
     private void styleToolbarButton(JButton btn) {
         btn.setFocusable(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -421,6 +436,7 @@ public class AdvancedNotepad extends JFrame {
         btn.setFocusPainted(false);
     }
 
+    // Applies a flat color style to a button.
     private void styleFlatButton(JButton btn, Color bg, Color fg) {
         btn.setBackground(bg);
         btn.setForeground(fg);
@@ -428,6 +444,7 @@ public class AdvancedNotepad extends JFrame {
         btn.setFocusPainted(false);
     }
 
+    // Styles combo boxes to match the custom notepad theme.
     private void styleComboBox(JComponent component, Color bg, Color fg, Color border) {
         component.setBackground(bg);
         component.setForeground(fg);
@@ -440,6 +457,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Chooses the best UI font family for the current language.
     private String getUIFontFamily() {
         if ("中文".equals(language)) {
             return "Microsoft YaHei UI";
@@ -450,6 +468,7 @@ public class AdvancedNotepad extends JFrame {
         return "Segoe UI";
     }
 
+    // Chooses the title font family for the current language.
     private String getTitleFontFamily() {
         if ("中文".equals(language)) {
             return "Microsoft YaHei UI";
@@ -460,14 +479,17 @@ public class AdvancedNotepad extends JFrame {
         return "Georgia";
     }
 
+    // Creates a normal UI font using the selected UI font family.
     private Font uiFont(int style, int size) {
         return new Font(getUIFontFamily(), style, size);
     }
 
+    // Creates a title font using the selected title font family.
     private Font titleFont(int style, int size) {
         return new Font(getTitleFontFamily(), style, size);
     }
 
+    // Picks a safe preview font for one language name in the language dropdown.
     private Font getSampleLanguageFont(String languageName, int style, int size) {
         if ("中文".equals(languageName)) {
             return new Font("Microsoft YaHei UI", style, size);
@@ -478,6 +500,7 @@ public class AdvancedNotepad extends JFrame {
         return new Font("Segoe UI", style, size);
     }
 
+    // Returns the colors used by the current theme.
     private Color[] getThemePalette() {
         boolean dark = theme.equalsIgnoreCase("Dark");
         Color bg = dark ? new Color(20, 24, 32) : new Color(243, 238, 229);
@@ -493,6 +516,7 @@ public class AdvancedNotepad extends JFrame {
         return new Color[]{bg, panel, editor, fg, sub, border, cardBorder, buttonBg, accent, accentSoft};
     }
 
+    // Creates one styled popup menu item and its action.
     private JMenuItem createStyledMenuItem(String text, ActionListener action, KeyStroke keyStroke) {
         Color[] palette = getThemePalette();
         Color editor = palette[2];
@@ -516,6 +540,7 @@ public class AdvancedNotepad extends JFrame {
         return item;
     }
 
+    // Styles popup menus like the right-click menu and top menus.
     private void stylePopupMenu(JPopupMenu menu) {
         Color[] palette = getThemePalette();
         Color editor = palette[2];
@@ -529,6 +554,7 @@ public class AdvancedNotepad extends JFrame {
         ));
     }
 
+    // Creates a separator line for popup menus.
     private JSeparator createStyledSeparator() {
         Color[] palette = getThemePalette();
         JSeparator separator = new JSeparator();
@@ -537,6 +563,7 @@ public class AdvancedNotepad extends JFrame {
         return separator;
     }
 
+    // Creates a card section used inside the settings dialog.
     private JPanel createSettingsCard(Color background, Color border, int top, int left, int bottom, int right) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setOpaque(true);
@@ -548,6 +575,7 @@ public class AdvancedNotepad extends JFrame {
         return panel;
     }
 
+    // Styles a checkbox so it matches the notepad design.
     private void styleSettingsCheckBox(JCheckBox checkBox, Color bg, Color fg) {
         checkBox.setOpaque(false);
         checkBox.setForeground(fg);
@@ -558,6 +586,7 @@ public class AdvancedNotepad extends JFrame {
         checkBox.setSelectedIcon(new CheckBoxIcon(bg.darker(), getThemePalette()[8], Color.WHITE));
     }
 
+    // Styles the language dropdown and makes each language show with a readable font.
     private void styleLanguageComboBox(JComboBox<String> comboBox, Color bg, Color fg, Color border) {
         styleComboBox(comboBox, bg, fg, border);
         comboBox.setRenderer(new DefaultListCellRenderer() {
@@ -572,6 +601,7 @@ public class AdvancedNotepad extends JFrame {
         });
     }
 
+    // Connects buttons, menus, and editor events to their actions.
     private void setupListeners() {
         newBtn.addActionListener(e -> newFile());
         openBtn.addActionListener(e -> openFile());
@@ -631,6 +661,7 @@ public class AdvancedNotepad extends JFrame {
         setupShortcuts();
     }
 
+    // Adds keyboard shortcuts like Ctrl+S, Ctrl+F, and Ctrl+B.
     private void setupShortcuts() {
         InputMap im = textPane.getInputMap(JComponent.WHEN_FOCUSED);
         ActionMap am = textPane.getActionMap();
@@ -701,6 +732,7 @@ public class AdvancedNotepad extends JFrame {
         });
     }
 
+    // Builds the File menu and its items.
     private JPopupMenu buildFileMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
@@ -713,6 +745,7 @@ public class AdvancedNotepad extends JFrame {
         return menu;
     }
 
+    // Builds the Edit menu and its items.
     private JPopupMenu buildEditMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
@@ -730,6 +763,7 @@ public class AdvancedNotepad extends JFrame {
         return menu;
     }
 
+    // Builds the View menu and its items.
     private JPopupMenu buildViewMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
@@ -747,6 +781,7 @@ public class AdvancedNotepad extends JFrame {
         return menu;
     }
 
+    // Builds the Help menu.
     private JPopupMenu buildHelpMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
@@ -754,14 +789,17 @@ public class AdvancedNotepad extends JFrame {
         return menu;
     }
 
+    // Adds one styled menu item into a popup menu.
     private void addMenuItem(JPopupMenu menu, String text, ActionListener action, KeyStroke keyStroke) {
         menu.add(createStyledMenuItem(text, action, keyStroke));
     }
 
+    // Attaches the custom right-click menu to the text editor.
     private void createRightClickMenu() {
         textPane.setComponentPopupMenu(buildRightClickMenu());
     }
 
+    // Builds the menu that appears when the user right-clicks in the editor.
     private JPopupMenu buildRightClickMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
@@ -776,6 +814,7 @@ public class AdvancedNotepad extends JFrame {
         return menu;
     }
 
+    // Clears the editor and starts a new blank document.
     private void newFile() {
         if (!confirmSaveIfNeeded()) {
             return;
@@ -795,6 +834,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Opens a file and loads its text into the editor.
     private void openFile() {
         if (!confirmSaveIfNeeded()) {
             return;
@@ -823,6 +863,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Saves the current document to disk.
     private void saveFile() {
         try {
             if (currentFile == null) {
@@ -842,6 +883,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Saves the current document using a new file path.
     private void saveFileAs() {
         try {
             if (showStyledFileChooser(true) != JFileChooser.APPROVE_OPTION) {
@@ -859,12 +901,14 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Tries to close the app safely after checking for unsaved changes.
     private void tryExit() {
         if (confirmSaveIfNeeded()) {
             dispose();
         }
     }
 
+    // Shows a confirmation dialog if the document has unsaved changes.
     private boolean confirmSaveIfNeeded() {
         if (!modified) {
             return true;
@@ -889,6 +933,7 @@ public class AdvancedNotepad extends JFrame {
         return true;
     }
 
+    // Undoes the last change.
     private void undo() {
         try {
             if (undoManager.canUndo()) {
@@ -901,6 +946,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Redoes the last undone change.
     private void redo() {
         try {
             if (undoManager.canRedo()) {
@@ -913,18 +959,21 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Changes the font size by the given amount.
     private void zoom(int value) {
         fontSize = Math.max(8, Math.min(72, fontSize + value));
         fontSizeCombo.setSelectedItem(fontSize);
         applyFontFamilyOrSizeToSelectionOrTypingState();
     }
 
+    // Restores the editor zoom to the default size.
     private void resetZoom() {
         fontSize = 18;
         fontSizeCombo.setSelectedItem(fontSize);
         applyFontFamilyOrSizeToSelectionOrTypingState();
     }
 
+    // Turns bold formatting on or off.
     private void toggleBold() {
         if (hasSelection()) {
             applyBooleanStyleToSelection(StyleType.BOLD);
@@ -937,6 +986,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatusMessage(t("Bold updated"));
     }
 
+    // Turns italic formatting on or off.
     private void toggleItalic() {
         if (hasSelection()) {
             applyBooleanStyleToSelection(StyleType.ITALIC);
@@ -949,6 +999,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatusMessage(t("Italic updated"));
     }
 
+    // Turns underline formatting on or off.
     private void toggleUnderline() {
         if (hasSelection()) {
             applyBooleanStyleToSelection(StyleType.UNDERLINE);
@@ -965,10 +1016,12 @@ public class AdvancedNotepad extends JFrame {
         BOLD, ITALIC, UNDERLINE
     }
 
+    // Checks whether text is currently selected.
     private boolean hasSelection() {
         return textPane.getSelectionStart() != textPane.getSelectionEnd();
     }
 
+    // Applies one text style across the selected text.
     private void applyBooleanStyleToSelection(StyleType type) {
         int start = textPane.getSelectionStart();
         int end = textPane.getSelectionEnd();
@@ -1028,6 +1081,7 @@ public class AdvancedNotepad extends JFrame {
         refreshFormatButtons();
     }
 
+    // Applies the selected font family or font size to text and typing state.
     private void applyFontFamilyOrSizeToSelectionOrTypingState() {
         if (hasSelection()) {
             int start = textPane.getSelectionStart();
@@ -1045,6 +1099,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Reads the current text style so the toolbar stays in sync with the caret.
     private void syncFormattingStateFromCaretOrSelection() {
         StyledDocument doc = textPane.getStyledDocument();
         int start = textPane.getSelectionStart();
@@ -1094,12 +1149,14 @@ public class AdvancedNotepad extends JFrame {
         refreshFormatButtons();
     }
 
+    // Refreshes the active look of formatting buttons.
     private void refreshFormatButtons() {
         updateToggleButton(boldBtn, bold);
         updateToggleButton(italicBtn, italic);
         updateToggleButton(underlineBtn, underline);
     }
 
+    // Updates one format button to show whether it is active.
     private void updateToggleButton(JButton button, boolean active) {
         boolean dark = theme.equalsIgnoreCase("Dark");
         Color neutralBg = dark ? new Color(38, 47, 63) : new Color(249, 245, 237);
@@ -1124,12 +1181,14 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Turns word wrap on or off.
     private void toggleWordWrap() {
         wordWrap = !wordWrap;
         rebuildDocumentPreservingStyles();
         updateStatusMessage(wordWrap ? t("Word wrap enabled") : t("Word wrap disabled"));
     }
 
+    // Sets word wrap directly.
     private void setWordWrap(boolean value) {
         if (wordWrap != value) {
             wordWrap = value;
@@ -1137,6 +1196,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Rebuilds the document so wrap changes do not remove text styling.
     private void rebuildDocumentPreservingStyles() {
         String text = textPane.getText();
         StyledDocument oldDoc = textPane.getStyledDocument();
@@ -1170,22 +1230,26 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Shows or hides line numbers.
     private void toggleLineNumbers() {
         showLineNumbers = !showLineNumbers;
         scrollPane.setRowHeaderView(showLineNumbers ? lineNumbers : null);
         updateStatusMessage(showLineNumbers ? t("Line numbers shown") : t("Line numbers hidden"));
     }
 
+    // Sets line number visibility directly.
     private void setLineNumbersVisible(boolean value) {
         showLineNumbers = value;
         scrollPane.setRowHeaderView(showLineNumbers ? lineNumbers : null);
     }
 
+    // Inserts the current date and time into the editor.
     private void insertDateTime() {
         String time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         textPane.replaceSelection(time);
     }
 
+    // Opens the Find dialog.
     private void openFindDialog() {
         JDialog dialog = new JDialog(this, t("Find"), false);
         dialog.setSize(360, 150);
@@ -1208,6 +1272,7 @@ public class AdvancedNotepad extends JFrame {
         dialog.setVisible(true);
     }
 
+    // Opens the Replace dialog.
     private void openReplaceDialog() {
         JDialog dialog = new JDialog(this, t("Replace"), false);
         dialog.setSize(420, 220);
@@ -1236,6 +1301,7 @@ public class AdvancedNotepad extends JFrame {
         dialog.setVisible(true);
     }
 
+    // Searches for the next matching text in the editor.
     private void findText(String target) {
         if (target == null || target.isEmpty()) {
             return;
@@ -1257,6 +1323,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Replaces the current match or moves to the next one.
     private void replaceOne(String find, String replace) {
         if (find == null || find.isEmpty()) {
             return;
@@ -1270,6 +1337,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Replaces all matching text in the document.
     private void replaceAll(String find, String replace) {
         if (find == null || find.isEmpty()) {
             return;
@@ -1285,6 +1353,7 @@ public class AdvancedNotepad extends JFrame {
         updateStatus();
     }
 
+    // Builds and shows the Settings dialog.
     private void openSettingsDialog() {
         Color[] palette = getThemePalette();
         Color bg = palette[0];
@@ -1441,6 +1510,7 @@ public class AdvancedNotepad extends JFrame {
         dialog.setVisible(true);
     }
 
+    // Adds one labeled control row to the settings form.
     private void addSettingsRow(JPanel panel, GridBagConstraints gbc, int row, String labelText, JComponent component, Color fg, Color sub) {
         gbc.gridwidth = 1;
         gbc.gridx = 0;
@@ -1456,6 +1526,7 @@ public class AdvancedNotepad extends JFrame {
         panel.add(component, gbc);
     }
 
+    // Styles and opens the file chooser for opening or saving files.
     private int showStyledFileChooser(boolean saveDialog) {
         Color[] palette = getThemePalette();
         Color bg = palette[0];
@@ -1474,6 +1545,7 @@ public class AdvancedNotepad extends JFrame {
         return saveDialog ? chooser.showSaveDialog(this) : chooser.showOpenDialog(this);
     }
 
+    // Styles each nested control inside the file chooser.
     private void styleFileChooserComponentTree(Component component, Color bg, Color panel, Color editor, Color fg, Color border, Color buttonBg, Color accent) {
         if (component instanceof JPanel) {
             component.setBackground(bg);
@@ -1521,6 +1593,7 @@ public class AdvancedNotepad extends JFrame {
         }
     }
 
+    // Builds and shows the custom confirmation dialog.
     private int showStyledConfirmDialog(String titleText, String messageText, String headlineText, String detailText) {
         Color[] palette = getThemePalette();
         Color bg = palette[0];
@@ -1620,6 +1693,7 @@ public class AdvancedNotepad extends JFrame {
         return result[0];
     }
 
+    // Styles a button used inside custom dialogs.
     private void styleDialogButton(JButton button, Color bg, Color fg, Color border) {
         button.setFont(uiFont(Font.BOLD, 13));
         button.setPreferredSize(new Dimension(104, 38));
@@ -1632,6 +1706,7 @@ public class AdvancedNotepad extends JFrame {
         ));
     }
 
+    // Applies the light or dark theme colors to the whole interface.
     private void applyTheme() {
         boolean dark = theme.equalsIgnoreCase("Dark");
 
@@ -1743,6 +1818,7 @@ public class AdvancedNotepad extends JFrame {
         fileLabel.setForeground(sub);
     }
 
+    // Updates all visible text to the selected language.
     private void applyLanguage() {
         fileMenuButton.setText(t("File"));
         editMenuButton.setText(t("Edit"));
@@ -1761,11 +1837,13 @@ public class AdvancedNotepad extends JFrame {
         settingsBtn.setText(t("Settings"));
     }
 
+    // Returns one translated text value for the given key.
     private String t(String key) {
         Map<String, String> map = getDictionary();
         return map.getOrDefault(key, key);
     }
 
+    // Creates the dictionary used for English, Chinese, and Arabic text.
     private Map<String, String> getDictionary() {
         Map<String, String> map = new LinkedHashMap<>();
 
@@ -1960,6 +2038,7 @@ public class AdvancedNotepad extends JFrame {
         return map;
     }
 
+    // Rebuilds the line number sidebar based on editor content.
     private void updateLineNumbers() {
         String text = textPane.getText();
         int lines = 1;
@@ -1978,6 +2057,7 @@ public class AdvancedNotepad extends JFrame {
         lineNumbers.setText(sb.toString());
     }
 
+    // Updates the status bar with line, column, characters, and file name.
     private void updateStatus() {
         int caret = textPane.getCaretPosition();
         String text = textPane.getText();
@@ -1998,15 +2078,18 @@ public class AdvancedNotepad extends JFrame {
         fileLabel.setText(currentFile == null ? "Untitled" : currentFile.getName());
     }
 
+    // Shows a custom message in the status area.
     private void updateStatusMessage(String message) {
         statusLabel.setText(message);
     }
 
+    // Updates the window title and unsaved marker.
     private void updateTitle() {
         String name = currentFile == null ? "Untitled" : currentFile.getName();
         setTitle((modified ? "* " : "") + name + " - Advanced Notepad");
     }
 
+    // Shows the About dialog.
     private void showAbout() {
         JOptionPane.showMessageDialog(
                 this,
@@ -2016,10 +2099,12 @@ public class AdvancedNotepad extends JFrame {
         );
     }
 
+    // Shows an error dialog.
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
     }
 
+    // Resets font and formatting back to the default typing state.
     private void resetTypingState() {
         bold = false;
         italic = false;
