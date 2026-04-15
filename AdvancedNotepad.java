@@ -1,12 +1,28 @@
 import java.awt.*;
+import java.awt.datatransfer.*;
 import java.awt.event.*;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.event.*;
@@ -26,6 +42,7 @@ public class AdvancedNotepad extends JFrame {
     private File currentFile;
     private boolean modified = false;
     private boolean internalChange = false;
+    private boolean showingImagePreview = false;
 
     private final UndoManager undoManager = new UndoManager();
 
@@ -48,7 +65,11 @@ public class AdvancedNotepad extends JFrame {
     private JPanel statusPanel;
     private JPanel contentPanel;
     private JPanel editorCardPanel;
+    private JPanel editorContentPanel;
+    private CardLayout editorContentLayout;
     private JScrollPane scrollPane;
+    private JScrollPane imageScrollPane;
+    private JLabel imagePreviewLabel;
 
     private JButton newBtn;
     private JButton openBtn;
@@ -72,8 +93,20 @@ public class AdvancedNotepad extends JFrame {
     private JButton editMenuButton;
     private JButton viewMenuButton;
     private JButton helpMenuButton;
+    private JPopupMenu selectionPopupMenu;
+    private Timer selectionPopupTimer;
 
     private MutableAttributeSet typingAttributes;
+
+    // Spell-check fields
+    private Set<String> dictionary = new HashSet<>();
+    private boolean spellCheckEnabled = true;
+    private boolean spellCheckDictionaryLoaded = false;
+    private Object spellCheckHighlightTag = new Object();  // Tag for spell-check highlights
+    private static final int MIN_DICTIONARY_WORDS = 20000;
+    private static final Pattern SPELLING_WORD_PATTERN = Pattern.compile("\\b[a-zA-Z]+(?:'[a-zA-Z]+)?\\b");
+    private static final Set<String> ALWAYS_VALID_WORDS = Set.of("a", "i");
+    private static final Highlighter.HighlightPainter SPELL_CHECK_PAINTER = new RedUnderlineHighlightPainter();
 
     private static final String[] FONT_OPTIONS = {
             "Consolas", "Cascadia Code", "Courier New", "Lucida Console",
@@ -100,6 +133,7 @@ public class AdvancedNotepad extends JFrame {
         buildUI();
         initializeTypingAttributes();
         setupListeners();
+        loadDictionary();  // Load the spell-check dictionary
         applyTheme();
         applyLanguage();
         updateLineNumbers();
@@ -144,6 +178,13 @@ public class AdvancedNotepad extends JFrame {
         scrollPane.setRowHeaderView(lineNumbers);
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
 
+        imagePreviewLabel = new JLabel("", SwingConstants.CENTER);
+        imagePreviewLabel.setVerticalAlignment(SwingConstants.TOP);
+        imagePreviewLabel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        imageScrollPane = new JScrollPane(imagePreviewLabel);
+        imageScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        imageScrollPane.getVerticalScrollBar().setUnitIncrement(18);
+
         statusLabel = new JLabel("Ready");
         fileLabel = new JLabel("Untitled");
         appTitleLabel = new JLabel("Advanced Notepad");
@@ -157,6 +198,8 @@ public class AdvancedNotepad extends JFrame {
         statusPanel = new JPanel(new BorderLayout());
         contentPanel = new JPanel(new BorderLayout());
         editorCardPanel = new JPanel(new BorderLayout());
+        editorContentLayout = new CardLayout();
+        editorContentPanel = new JPanel(editorContentLayout);
 
         fileMenuButton = createTopMenuButton("File");
         editMenuButton = createTopMenuButton("Edit");
@@ -192,6 +235,10 @@ public class AdvancedNotepad extends JFrame {
         settingsBtn.setIcon(new GearIcon(16, new Color(255, 255, 255)));
         settingsBtn.setHorizontalTextPosition(SwingConstants.RIGHT);
         settingsBtn.setIconTextGap(8);
+
+        selectionPopupMenu = createSelectionPopupMenu();
+        selectionPopupTimer = new Timer(140, e -> showSelectionPopup());
+        selectionPopupTimer.setRepeats(false);
     }
 
     // Prepares the default style used when the user types new text.
@@ -236,7 +283,256 @@ public class AdvancedNotepad extends JFrame {
             updateTitle();
             updateLineNumbers();
             updateStatus();
+            // Trigger spell-check on document change
+            SwingUtilities.invokeLater(this::checkSpelling);
         }
+    }
+
+    // Loads a real English dictionary from the project or a local system Hunspell dictionary.
+    private void loadDictionary() {
+        dictionary.clear();
+
+        Path dictionaryPath = findDictionaryPath();
+        if (dictionaryPath == null) {
+            System.err.println("No usable English dictionary found. Spell-check disabled.");
+            spellCheckDictionaryLoaded = false;
+            spellCheckEnabled = false;
+            return;
+        }
+
+        try {
+            loadDictionaryWords(dictionaryPath);
+            if (dictionary.size() < MIN_DICTIONARY_WORDS) {
+                System.err.println("Dictionary file is too small for reliable spell-check: " + dictionaryPath.toAbsolutePath());
+                dictionary.clear();
+                spellCheckDictionaryLoaded = false;
+                spellCheckEnabled = false;
+                return;
+            }
+
+            spellCheckDictionaryLoaded = true;
+            spellCheckEnabled = true;
+            System.out.println("Dictionary loaded successfully from " + dictionaryPath.toAbsolutePath()
+                    + " with " + dictionary.size() + " words");
+        } catch (IOException e) {
+            System.err.println("Error loading dictionary: " + e.getMessage());
+            dictionary.clear();
+            spellCheckDictionaryLoaded = false;
+            spellCheckEnabled = false;
+        }
+    }
+
+    // Finds the best available dictionary file and skips tiny demo lists that cause false positives.
+    private Path findDictionaryPath() {
+        Path[] candidatePaths = {
+                Paths.get("english_words.txt"),
+                Paths.get("words.txt"),
+                Paths.get("words_alpha.txt"),
+                Paths.get("en_US.dic"),
+                Paths.get("C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Required\\Linguistics\\Providers\\Plugins2\\AdobeHunspellPlugin\\Dictionaries\\en_US\\en_US.dic"),
+                Paths.get("C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Required\\Linguistics\\Providers\\Plugins2\\AdobeHunspellPlugin\\Dictionaries\\en_GB\\en_GB.dic"),
+                Paths.get("C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Required\\Linguistics\\Providers\\Plugins2\\AdobeHunspellPlugin\\Dictionaries\\en_CA\\en_CA.dic")
+        };
+
+        for (Path candidatePath : candidatePaths) {
+            if (!Files.exists(candidatePath)) {
+                continue;
+            }
+
+            try {
+                long lineCount = countDictionaryEntries(candidatePath);
+                if (lineCount >= MIN_DICTIONARY_WORDS) {
+                    return candidatePath;
+                }
+                System.err.println("Skipping small dictionary file: " + candidatePath.toAbsolutePath() + " (" + lineCount + " entries)");
+            } catch (IOException e) {
+                System.err.println("Could not inspect dictionary file: " + candidatePath.toAbsolutePath());
+            }
+        }
+
+        return null;
+    }
+
+    // Counts usable entries before loading the whole dictionary so we can reject demo files.
+    private long countDictionaryEntries(Path dictionaryPath) throws IOException {
+        List<String> lines = Files.readAllLines(dictionaryPath, StandardCharsets.UTF_8);
+        if (lines.isEmpty()) {
+            return 0;
+        }
+
+        int startIndex = isHunspellDictionary(lines, dictionaryPath) ? 1 : 0;
+        long count = 0;
+        for (int i = startIndex; i < lines.size(); i++) {
+            String normalizedWord = normalizeDictionaryEntry(lines.get(i));
+            if (!normalizedWord.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Loads words from plain text lists and Hunspell .dic files.
+    private void loadDictionaryWords(Path dictionaryPath) throws IOException {
+        List<String> lines = Files.readAllLines(dictionaryPath, StandardCharsets.UTF_8);
+        if (lines.isEmpty()) {
+            return;
+        }
+
+        int startIndex = isHunspellDictionary(lines, dictionaryPath) ? 1 : 0;
+        for (int i = startIndex; i < lines.size(); i++) {
+            String normalizedWord = normalizeDictionaryEntry(lines.get(i));
+            if (!normalizedWord.isEmpty()) {
+                dictionary.add(normalizedWord);
+            }
+        }
+    }
+
+    // Detects Hunspell dictionaries where the first line stores the entry count.
+    private boolean isHunspellDictionary(List<String> lines, Path dictionaryPath) {
+        if (dictionaryPath.toString().toLowerCase(Locale.ENGLISH).endsWith(".dic")) {
+            return true;
+        }
+
+        String firstLine = lines.get(0).trim();
+        return !firstLine.isEmpty() && firstLine.chars().allMatch(Character::isDigit);
+    }
+
+    // Normalizes one dictionary line to a lowercase word and strips Hunspell metadata.
+    private String normalizeDictionaryEntry(String entry) {
+        String word = entry == null ? "" : entry.trim();
+        if (word.isEmpty() || word.startsWith("#")) {
+            return "";
+        }
+
+        int slashIndex = word.indexOf('/');
+        if (slashIndex >= 0) {
+            word = word.substring(0, slashIndex);
+        }
+
+        word = word.replaceAll("[^A-Za-z']", "").toLowerCase(Locale.ENGLISH);
+        return word;
+    }
+
+    // Draws the spell-check underline using the exact pixel bounds of the misspelled word.
+    private static class RedUnderlineHighlightPainter extends LayeredHighlighter.LayerPainter {
+        private static final Color UNDERLINE_COLOR = new Color(220, 38, 38);
+
+        @Override
+        public void paint(Graphics g, int p0, int p1, Shape bounds, JTextComponent c) {
+            paintUnderline(g, p0, p1, c);
+        }
+
+        @Override
+        public Shape paintLayer(Graphics g, int p0, int p1, Shape viewBounds, JTextComponent c, View view) {
+            paintUnderline(g, p0, p1, c);
+            try {
+                Shape shape = view.modelToView(p0, Position.Bias.Forward, p1, Position.Bias.Backward, viewBounds);
+                return shape != null ? shape : viewBounds;
+            } catch (BadLocationException ex) {
+                return viewBounds;
+            }
+        }
+
+        private void paintUnderline(Graphics g, int p0, int p1, JTextComponent c) {
+            if (p1 <= p0) {
+                return;
+            }
+
+            try {
+                Rectangle2D startRect = c.modelToView2D(p0);
+                Rectangle2D endRect = c.modelToView2D(p1 - 1);
+                if (startRect == null || endRect == null) {
+                    return;
+                }
+
+                int startX = (int) Math.round(startRect.getX());
+                int endX = (int) Math.round(endRect.getX() + endRect.getWidth());
+                int baselineY = (int) Math.round(Math.max(startRect.getY() + startRect.getHeight(),
+                        endRect.getY() + endRect.getHeight()) - 2);
+
+                if (endX <= startX) {
+                    endX = startX + Math.max(2, (int) Math.round(endRect.getWidth()));
+                }
+
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(UNDERLINE_COLOR);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                int waveHeight = 2;
+                int step = 4;
+                int x = startX;
+                while (x < endX) {
+                    int midX = Math.min(x + (step / 2), endX);
+                    int nextX = Math.min(x + step, endX);
+                    g2.drawLine(x, baselineY, midX, baselineY + waveHeight);
+                    g2.drawLine(midX, baselineY + waveHeight, nextX, baselineY);
+                    x += step;
+                }
+                g2.dispose();
+            } catch (BadLocationException ex) {
+                // Ignore invalid highlight positions while the document is updating.
+            }
+        }
+    }
+
+    // Checks spelling in the document and applies red underlines only to true misspelled words.
+    private void checkSpelling() {
+        clearSpellCheckHighlights();
+
+        if (!spellCheckEnabled || !spellCheckDictionaryLoaded) {
+            return;
+        }
+
+        StyledDocument doc = textPane.getStyledDocument();
+        String text;
+        try {
+            text = doc.getText(0, doc.getLength());
+        } catch (BadLocationException e) {
+            return;
+        }
+
+        Highlighter highlighter = textPane.getHighlighter();
+        Matcher matcher = SPELLING_WORD_PATTERN.matcher(text);
+        while (matcher.find()) {
+            String word = matcher.group().toLowerCase(Locale.ENGLISH);
+            if (!isMisspelledWord(word)) {
+                continue;
+            }
+
+            try {
+                highlighter.addHighlight(matcher.start(), matcher.end(), SPELL_CHECK_PAINTER);
+            } catch (BadLocationException e) {
+                System.err.println("Error highlighting misspelled word: " + e.getMessage());
+            }
+        }
+    }
+
+    // Removes only the spell-check underlines without touching other highlights.
+    private void clearSpellCheckHighlights() {
+        Highlighter highlighter = textPane.getHighlighter();
+        Highlighter.Highlight[] highlights = highlighter.getHighlights();
+        for (Highlighter.Highlight highlight : highlights) {
+            if (highlight.getPainter() == SPELL_CHECK_PAINTER) {
+                highlighter.removeHighlight(highlight);
+            }
+        }
+    }
+
+    // Returns true only when a real word is not present in the loaded dictionary.
+    private boolean isMisspelledWord(String word) {
+        if (word == null || word.isEmpty()) {
+            return false;
+        }
+
+        if (word.chars().allMatch(Character::isDigit)) {
+            return false;
+        }
+
+        if (word.length() == 1) {
+            return !ALWAYS_VALID_WORDS.contains(word);
+        }
+
+        return !dictionary.contains(word);
     }
 
     // Copies the current font and style settings into the typing attributes.
@@ -357,7 +653,10 @@ public class AdvancedNotepad extends JFrame {
 
         editorCardPanel.setBorder(new EmptyBorder(0, 24, 0, 24));
         editorCardPanel.setOpaque(true);
-        editorCardPanel.add(scrollPane, BorderLayout.CENTER);
+        editorContentPanel.setOpaque(false);
+        editorContentPanel.add(scrollPane, "TEXT");
+        editorContentPanel.add(imageScrollPane, "IMAGE");
+        editorCardPanel.add(editorContentPanel, BorderLayout.CENTER);
 
         contentPanel.setBorder(new EmptyBorder(0, 0, 14, 0));
         contentPanel.setOpaque(false);
@@ -642,11 +941,52 @@ public class AdvancedNotepad extends JFrame {
         textPane.addCaretListener(e -> {
             syncFormattingStateFromCaretOrSelection();
             updateStatus();
+            if (!hasSelection()) {
+                hideSelectionPopup();
+            }
         });
 
         textPane.addMouseWheelListener(e -> {
             if (e.isControlDown()) {
                 zoom(e.getWheelRotation() < 0 ? 2 : -2);
+            }
+        });
+
+        textPane.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (hasSelection()) {
+                    scheduleSelectionPopup();
+                } else {
+                    hideSelectionPopup();
+                }
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (!selectionPopupMenu.isVisible()) {
+                    return;
+                }
+                if (!hasSelection()) {
+                    hideSelectionPopup();
+                }
+            }
+        });
+
+        textPane.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    hideSelectionPopup();
+                    textPane.select(textPane.getCaretPosition(), textPane.getCaretPosition());
+                    return;
+                }
+
+                if (hasSelection()) {
+                    scheduleSelectionPopup();
+                } else {
+                    hideSelectionPopup();
+                }
             }
         });
 
@@ -671,10 +1011,14 @@ public class AdvancedNotepad extends JFrame {
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK), "saveFile");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "find");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK), "replace");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "undoAction");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "redoAction");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK), "bold");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_I, InputEvent.CTRL_DOWN_MASK), "italic");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_U, InputEvent.CTRL_DOWN_MASK), "underline");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.CTRL_DOWN_MASK), "dateTime");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK), "copyContent");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK), "pasteContent");
 
         am.put("newFile", new AbstractAction() {
             @Override
@@ -706,6 +1050,18 @@ public class AdvancedNotepad extends JFrame {
                 openReplaceDialog();
             }
         });
+        am.put("undoAction", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                undo();
+            }
+        });
+        am.put("redoAction", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                redo();
+            }
+        });
         am.put("bold", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -728,6 +1084,18 @@ public class AdvancedNotepad extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 insertDateTime();
+            }
+        });
+        am.put("copyContent", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                copyContent();
+            }
+        });
+        am.put("pasteContent", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                pasteContent();
             }
         });
     }
@@ -753,8 +1121,8 @@ public class AdvancedNotepad extends JFrame {
         addMenuItem(menu, t("Redo"), e -> redo(), KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK));
         menu.add(createStyledSeparator());
         addMenuItem(menu, t("Cut"), e -> textPane.cut(), KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK));
-        addMenuItem(menu, t("Copy"), e -> textPane.copy(), KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
-        addMenuItem(menu, t("Paste"), e -> textPane.paste(), KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK));
+        addMenuItem(menu, t("Copy"), e -> copyContent(), KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
+        addMenuItem(menu, t("Paste"), e -> pasteContent(), KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK));
         addMenuItem(menu, t("Select All"), e -> textPane.selectAll(), KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK));
         menu.add(createStyledSeparator());
         addMenuItem(menu, t("Find"), e -> openFindDialog(), KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
@@ -799,13 +1167,356 @@ public class AdvancedNotepad extends JFrame {
         textPane.setComponentPopupMenu(buildRightClickMenu());
     }
 
+    // Builds the floating selection toolbar shown near selected text.
+    private JPopupMenu createSelectionPopupMenu() {
+        JPopupMenu popup = new JPopupMenu();
+        stylePopupMenu(popup);
+
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 4));
+        panel.setOpaque(false);
+
+        JButton copyButton = createSelectionActionButton("Copy");
+        JButton boldButton = createSelectionActionButton("B");
+        JButton italicButton = createSelectionActionButton("I");
+        JButton underlineButton = createSelectionActionButton("U");
+
+        copyButton.addActionListener(e -> {
+            copyContent();
+            hideSelectionPopup();
+        });
+        boldButton.addActionListener(e -> {
+            toggleBold();
+            hideSelectionPopup();
+        });
+        italicButton.addActionListener(e -> {
+            toggleItalic();
+            hideSelectionPopup();
+        });
+        underlineButton.addActionListener(e -> {
+            toggleUnderline();
+            hideSelectionPopup();
+        });
+
+        panel.add(copyButton);
+        panel.add(boldButton);
+        panel.add(italicButton);
+        panel.add(underlineButton);
+        popup.add(panel);
+        return popup;
+    }
+
+    // Creates a compact action button used inside the floating selection toolbar.
+    private JButton createSelectionActionButton(String text) {
+        JButton button = new JButton(text);
+        button.setFocusable(false);
+        button.setMargin(new Insets(4, 8, 4, 8));
+        button.setFont(uiFont(Font.BOLD, "Copy".equals(text) ? 12 : 13));
+        styleToolbarButton(button);
+        button.setPreferredSize("Copy".equals(text) ? new Dimension(58, 30) : new Dimension(38, 30));
+        return button;
+    }
+
+    // Starts a short delay so the selection popup appears after selection movement settles.
+    private void scheduleSelectionPopup() {
+        if (!hasSelection() || !textPane.isShowing()) {
+            return;
+        }
+        selectionPopupTimer.restart();
+    }
+
+    // Hides the floating selection toolbar.
+    private void hideSelectionPopup() {
+        selectionPopupTimer.stop();
+        selectionPopupMenu.setVisible(false);
+    }
+
+    // Shows the floating selection toolbar near the selected text and keeps it inside the editor window.
+    private void showSelectionPopup() {
+        if (!hasSelection() || !textPane.isShowing()) {
+            hideSelectionPopup();
+            return;
+        }
+
+        try {
+            int start = textPane.getSelectionStart();
+            int end = Math.max(start, textPane.getSelectionEnd() - 1);
+
+            Rectangle startRect = textPane.modelToView(start);
+            Rectangle endRect = textPane.modelToView(end);
+            if (startRect == null || endRect == null) {
+                hideSelectionPopup();
+                return;
+            }
+
+            Dimension popupSize = selectionPopupMenu.getPreferredSize();
+            int selectionCenter = (startRect.x + endRect.x + endRect.width) / 2;
+            int x = selectionCenter - (popupSize.width / 2);
+            int y = startRect.y - popupSize.height - 10;
+
+            if (y < 6) {
+                y = Math.max(startRect.y + startRect.height + 10, 6);
+            }
+
+            int maxX = Math.max(6, textPane.getVisibleRect().width - popupSize.width - 6);
+            x = Math.max(6, Math.min(x, maxX));
+
+            selectionPopupMenu.show(textPane, x, y);
+        } catch (BadLocationException ex) {
+            hideSelectionPopup();
+        }
+    }
+
+    // Returns true when the chosen file has a common image extension.
+    private boolean hasImageExtension(File file) {
+        if (file == null) {
+            return false;
+        }
+
+        String name = file.getName().toLowerCase();
+        return name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")
+                || name.endsWith(".gif") || name.endsWith(".bmp");
+    }
+
+    // Switches the center view back to the normal text editor.
+    private void showTextEditor() {
+        showingImagePreview = false;
+        editorContentLayout.show(editorContentPanel, "TEXT");
+        scrollPane.setRowHeaderView(showLineNumbers ? lineNumbers : null);
+    }
+
+    // Inserts a loaded image file into the text editor instead of replacing the whole editor.
+    private void insertOpenedImage(File file, BufferedImage image) {
+        showTextEditor();
+        textPane.requestFocusInWindow();
+        insertImageAtCaret(image);
+        modified = true;
+        updateTitle();
+        updateLineNumbers();
+        updateStatus();
+        updateStatusMessage("Image opened");
+    }
+
+    // Attempts to decode the file as an image. Returns null when the file is not a readable image.
+    private BufferedImage tryLoadImage(File file) {
+        if (file == null || !file.isFile()) {
+            return null;
+        }
+
+        BufferedImage image = readImageWithImageIO(file);
+        if (image != null) {
+            return image;
+        }
+
+        return readImageWithToolkit(file);
+    }
+
+    // Uses ImageIO readers directly so valid images are not rejected just because the simple helper returns null.
+    private BufferedImage readImageWithImageIO(File file) {
+        try (ImageInputStream stream = ImageIO.createImageInputStream(file)) {
+            if (stream == null) {
+                return null;
+            }
+
+            java.util.Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
+            while (readers.hasNext()) {
+                ImageReader reader = readers.next();
+                try {
+                    reader.setInput(stream, true, true);
+                    BufferedImage image = reader.read(0);
+                    if (image != null) {
+                        return image;
+                    }
+                } catch (IOException ex) {
+                } finally {
+                    reader.dispose();
+                    stream.seek(0);
+                }
+            }
+        } catch (Exception ex) {
+        }
+
+        try {
+            return ImageIO.read(file);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    // Falls back to the AWT image loader, then converts the result into a buffered image for preview and insertion.
+    private BufferedImage readImageWithToolkit(File file) {
+        try {
+            Image image = Toolkit.getDefaultToolkit().createImage(file.getAbsolutePath());
+            MediaTracker tracker = new MediaTracker(this);
+            tracker.addImage(image, 0);
+            tracker.waitForID(0);
+
+            if (tracker.isErrorID(0)) {
+                return null;
+            }
+
+            int width = image.getWidth(null);
+            int height = image.getHeight(null);
+            if (width <= 0 || height <= 0) {
+                return null;
+            }
+
+            BufferedImage converted = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = converted.createGraphics();
+            g2.drawImage(image, 0, 0, null);
+            g2.dispose();
+            return converted;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    // Copies selected text normally and copies an inserted image when the selection contains one.
+    private void copyContent() {
+        if (showingImagePreview && imagePreviewLabel.getIcon() instanceof ImageIcon) {
+            copyImageToClipboard(((ImageIcon) imagePreviewLabel.getIcon()).getImage());
+            updateStatusMessage("Image copied");
+            return;
+        }
+
+        Image selectedImage = getSelectedEditorImage();
+        if (selectedImage != null) {
+            copyImageToClipboard(selectedImage);
+            updateStatusMessage("Image copied");
+            return;
+        }
+
+        textPane.copy();
+    }
+
+    // Pastes either image data or text from the clipboard directly at the caret.
+    private void pasteContent() {
+        if (showingImagePreview) {
+            showError("Switch to a text document before pasting into the editor.");
+            return;
+        }
+
+        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+        Transferable content = clipboard.getContents(null);
+        if (content == null) {
+            return;
+        }
+
+        try {
+            if (content.isDataFlavorSupported(DataFlavor.imageFlavor)) {
+                Image image = (Image) content.getTransferData(DataFlavor.imageFlavor);
+                if (image != null) {
+                    showTextEditor();
+                    insertImageAtCaret(image);
+                    updateStatus();
+                    updateStatusMessage("Image pasted");
+                    return;
+                }
+            }
+        } catch (Exception ex) {
+        }
+
+        textPane.paste();
+        updateStatus();
+    }
+
+    // Inserts an image as an icon directly inside the JTextPane document at the caret.
+    private void insertImageAtCaret(Image image) {
+        Image preparedImage = prepareInlineImage(image, Math.max(360, textPane.getWidth() - 120), 320);
+        textPane.requestFocusInWindow();
+        textPane.replaceSelection("");
+        int caret = textPane.getCaretPosition();
+
+        try {
+            StyledDocument document = textPane.getStyledDocument();
+            if (caret > 0) {
+                String before = document.getText(caret - 1, 1);
+                if (!"\n".equals(before)) {
+                    document.insertString(caret, "\n", null);
+                    caret++;
+                    textPane.setCaretPosition(caret);
+                }
+            }
+        } catch (BadLocationException ignored) {
+        }
+
+        textPane.insertIcon(new ImageIcon(preparedImage));
+        try {
+            textPane.getStyledDocument().insertString(textPane.getCaretPosition(), "\n", null);
+        } catch (BadLocationException ignored) {
+        }
+        onDocumentChanged();
+    }
+
+    // Scales inserted images to a reasonable width and height while keeping the original aspect ratio.
+    private Image prepareInlineImage(Image image, int maxWidth, int maxHeight) {
+        int width = image.getWidth(null);
+        int height = image.getHeight(null);
+        if (width <= 0 || height <= 0) {
+            BufferedImage converted = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = converted.createGraphics();
+            g2.drawImage(image, 0, 0, null);
+            g2.dispose();
+            image = converted;
+            width = image.getWidth(null);
+            height = image.getHeight(null);
+        }
+
+        double scale = Math.min(1.0, Math.min(maxWidth / (double) width, maxHeight / (double) height));
+        if (scale < 1.0) {
+            int scaledWidth = Math.max(1, (int) Math.round(width * scale));
+            int scaledHeight = Math.max(1, (int) Math.round(height * scale));
+            return image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+        }
+        return image;
+    }
+
+    // Reads the selected document range and returns the first embedded image if one is selected.
+    private Image getSelectedEditorImage() {
+        int start = textPane.getSelectionStart();
+        int end = textPane.getSelectionEnd();
+        StyledDocument document = textPane.getStyledDocument();
+
+        if (start == end && document.getLength() > 0) {
+            start = Math.max(0, textPane.getCaretPosition() - 1);
+            end = Math.min(document.getLength(), start + 1);
+        }
+
+        for (int i = start; i < end; i++) {
+            Element element = document.getCharacterElement(i);
+            Icon icon = StyleConstants.getIcon(element.getAttributes());
+            if (icon instanceof ImageIcon) {
+                return ((ImageIcon) icon).getImage();
+            }
+        }
+
+        return null;
+    }
+
+    // Places an image into the system clipboard so it can be pasted elsewhere.
+    private void copyImageToClipboard(Image image) {
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new ImageSelection(image), null);
+    }
+
+    // Returns true when the current rich-text document contains at least one embedded image.
+    private boolean documentContainsImages() {
+        StyledDocument document = textPane.getStyledDocument();
+        for (int i = 0; i < document.getLength(); i++) {
+            Element element = document.getCharacterElement(i);
+            Icon icon = StyleConstants.getIcon(element.getAttributes());
+            if (icon != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Builds the menu that appears when the user right-clicks in the editor.
     private JPopupMenu buildRightClickMenu() {
         JPopupMenu menu = new JPopupMenu();
         stylePopupMenu(menu);
         menu.add(createStyledMenuItem(t("Cut"), e -> textPane.cut(), KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK)));
-        menu.add(createStyledMenuItem(t("Copy"), e -> textPane.copy(), KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK)));
-        menu.add(createStyledMenuItem(t("Paste"), e -> textPane.paste(), KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK)));
+        menu.add(createStyledMenuItem(t("Copy"), e -> copyContent(), KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK)));
+        menu.add(createStyledMenuItem(t("Paste"), e -> pasteContent(), KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK)));
         menu.add(createStyledSeparator());
         menu.add(createStyledMenuItem(t("Find"), e -> openFindDialog(), KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK)));
         menu.add(createStyledMenuItem(t("Replace"), e -> openReplaceDialog(), KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK)));
@@ -820,6 +1531,7 @@ public class AdvancedNotepad extends JFrame {
             return;
         }
 
+        showTextEditor();
         internalChange = true;
         textPane.setText("");
         internalChange = false;
@@ -836,13 +1548,25 @@ public class AdvancedNotepad extends JFrame {
 
     // Opens a file and loads its text into the editor.
     private void openFile() {
-        if (!confirmSaveIfNeeded()) {
-            return;
-        }
-
         if (showStyledFileChooser(false) == JFileChooser.APPROVE_OPTION) {
             try {
-                currentFile = chooser.getSelectedFile();
+                File selectedFile = chooser.getSelectedFile();
+                BufferedImage image = tryLoadImage(selectedFile);
+                if (image != null) {
+                    insertOpenedImage(selectedFile, image);
+                    return;
+                }
+                if (hasImageExtension(selectedFile)) {
+                    showError("Could not open image:\nThe file is invalid, corrupted, or not supported.");
+                    return;
+                }
+
+                if (!confirmSaveIfNeeded()) {
+                    return;
+                }
+
+                currentFile = selectedFile;
+
                 String content = Files.readString(currentFile.toPath(), StandardCharsets.UTF_8);
 
                 internalChange = true;
@@ -850,13 +1574,14 @@ public class AdvancedNotepad extends JFrame {
                 textPane.setCaretPosition(0);
                 internalChange = false;
 
+                showTextEditor();
                 modified = false;
                 undoManager.discardAllEdits();
                 resetTypingState();
                 updateTitle();
                 updateLineNumbers();
-                updateStatusMessage(t("File opened successfully"));
                 updateStatus();
+                updateStatusMessage(t("File opened successfully"));
             } catch (Exception ex) {
                 showError("Could not open file:\n" + ex.getMessage());
             }
@@ -866,6 +1591,15 @@ public class AdvancedNotepad extends JFrame {
     // Saves the current document to disk.
     private void saveFile() {
         try {
+            if (showingImagePreview) {
+                showError("Image preview mode cannot save over the image file.");
+                return;
+            }
+            if (documentContainsImages()) {
+                showError("Saving documents with inline images is not supported yet.");
+                return;
+            }
+
             if (currentFile == null) {
                 if (showStyledFileChooser(true) != JFileChooser.APPROVE_OPTION) {
                     return;
@@ -876,8 +1610,8 @@ public class AdvancedNotepad extends JFrame {
             Files.writeString(currentFile.toPath(), textPane.getText(), StandardCharsets.UTF_8);
             modified = false;
             updateTitle();
-            updateStatusMessage(t("File saved successfully"));
             updateStatus();
+            updateStatusMessage(t("File saved successfully"));
         } catch (Exception ex) {
             showError("Could not save file:\n" + ex.getMessage());
         }
@@ -886,6 +1620,15 @@ public class AdvancedNotepad extends JFrame {
     // Saves the current document using a new file path.
     private void saveFileAs() {
         try {
+            if (showingImagePreview) {
+                showError("Image preview mode is view-only. Open a text document to save text.");
+                return;
+            }
+            if (documentContainsImages()) {
+                showError("Saving documents with inline images is not supported yet.");
+                return;
+            }
+
             if (showStyledFileChooser(true) != JFileChooser.APPROVE_OPTION) {
                 return;
             }
@@ -894,8 +1637,8 @@ public class AdvancedNotepad extends JFrame {
             Files.writeString(currentFile.toPath(), textPane.getText(), StandardCharsets.UTF_8);
             modified = false;
             updateTitle();
-            updateStatusMessage(t("File saved successfully"));
             updateStatus();
+            updateStatusMessage(t("File saved successfully"));
         } catch (Exception ex) {
             showError("Could not save file:\n" + ex.getMessage());
         }
@@ -980,7 +1723,9 @@ public class AdvancedNotepad extends JFrame {
         } else {
             bold = !bold;
             applyTypingAttributesToSet();
+            internalChange = true;
             textPane.setCharacterAttributes(typingAttributes, false);
+            internalChange = false;
             refreshFormatButtons();
         }
         updateStatusMessage(t("Bold updated"));
@@ -993,7 +1738,9 @@ public class AdvancedNotepad extends JFrame {
         } else {
             italic = !italic;
             applyTypingAttributesToSet();
+            internalChange = true;
             textPane.setCharacterAttributes(typingAttributes, false);
+            internalChange = false;
             refreshFormatButtons();
         }
         updateStatusMessage(t("Italic updated"));
@@ -1006,7 +1753,9 @@ public class AdvancedNotepad extends JFrame {
         } else {
             underline = !underline;
             applyTypingAttributesToSet();
+            internalChange = true;
             textPane.setCharacterAttributes(typingAttributes, false);
+            internalChange = false;
             refreshFormatButtons();
         }
         updateStatusMessage(t("Underline updated"));
@@ -1094,7 +1843,9 @@ public class AdvancedNotepad extends JFrame {
         }
 
         applyTypingAttributesToSet();
+        internalChange = true;
         textPane.setCharacterAttributes(typingAttributes, false);
+        internalChange = false;
         lineNumbers.setFont(new Font("Consolas", Font.PLAIN, Math.max(12, fontSize - 2)));
         updateStatus();
     }
@@ -1540,6 +2291,12 @@ public class AdvancedNotepad extends JFrame {
         chooser.setDialogTitle(saveDialog ? t("Save") : t("Open"));
         chooser.setApproveButtonText(saveDialog ? t("Save") : t("Open"));
         chooser.setBackground(bg);
+        chooser.resetChoosableFileFilters();
+        chooser.setAcceptAllFileFilterUsed(true);
+        if (!saveDialog) {
+            chooser.addChoosableFileFilter(new FileNameExtensionFilter("Image Files (*.png, *.jpg, *.jpeg, *.gif, *.bmp)", "png", "jpg", "jpeg", "gif", "bmp"));
+            chooser.addChoosableFileFilter(new FileNameExtensionFilter("Text Files (*.txt, *.java, *.md, *.log)", "txt", "java", "md", "log"));
+        }
         styleFileChooserComponentTree(chooser, bg, panel, editor, fg, border, buttonBg, accent);
 
         return saveDialog ? chooser.showSaveDialog(this) : chooser.showOpenDialog(this);
@@ -1810,6 +2567,19 @@ public class AdvancedNotepad extends JFrame {
         styleComboBox(fontFamilyCombo, buttonBg, fg, border);
         styleComboBox(fontSizeCombo, buttonBg, fg, border);
 
+        if (selectionPopupMenu != null && selectionPopupMenu.getComponentCount() > 0 && selectionPopupMenu.getComponent(0) instanceof JPanel) {
+            stylePopupMenu(selectionPopupMenu);
+            for (Component component : ((JPanel) selectionPopupMenu.getComponent(0)).getComponents()) {
+                if (component instanceof JButton) {
+                    styleToolbarButton((JButton) component);
+                    ((JButton) component).setBackground(buttonBg);
+                    ((JButton) component).setForeground(fg);
+                    ((JButton) component).setBorder(new CompoundBorder(new LineBorder(border, 1, true), new EmptyBorder(5, 8, 5, 8)));
+                    ((JButton) component).setContentAreaFilled(true);
+                }
+            }
+        }
+
         refreshFormatButtons();
 
         appTitleLabel.setForeground(fg);
@@ -2059,6 +2829,12 @@ public class AdvancedNotepad extends JFrame {
 
     // Updates the status bar with line, column, characters, and file name.
     private void updateStatus() {
+        if (showingImagePreview) {
+            statusLabel.setText("Image opened");
+            fileLabel.setText(currentFile == null ? "Untitled" : currentFile.getName());
+            return;
+        }
+
         int caret = textPane.getCaretPosition();
         String text = textPane.getText();
 
@@ -2119,6 +2895,7 @@ public class AdvancedNotepad extends JFrame {
         textPane.setCharacterAttributes(typingAttributes, false);
         refreshFormatButtons();
     }
+
 
     private static class CheckBoxIcon implements Icon {
         private final Color borderColor;
@@ -2202,6 +2979,32 @@ public class AdvancedNotepad extends JFrame {
         @Override
         public int getIconHeight() {
             return size;
+        }
+    }
+
+    private static class ImageSelection implements Transferable {
+        private final Image image;
+
+        ImageSelection(Image image) {
+            this.image = image;
+        }
+
+        @Override
+        public DataFlavor[] getTransferDataFlavors() {
+            return new DataFlavor[]{DataFlavor.imageFlavor};
+        }
+
+        @Override
+        public boolean isDataFlavorSupported(DataFlavor flavor) {
+            return DataFlavor.imageFlavor.equals(flavor);
+        }
+
+        @Override
+        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+            if (!isDataFlavorSupported(flavor)) {
+                throw new UnsupportedFlavorException(flavor);
+            }
+            return image;
         }
     }
 }
